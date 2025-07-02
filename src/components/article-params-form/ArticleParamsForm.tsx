@@ -1,11 +1,10 @@
 import { ArrowButton } from 'src/ui/arrow-button';
 import { Button } from 'src/ui/button';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import clsx from 'clsx';
 import styles from './ArticleParamsForm.module.scss';
 import { Select } from 'src/ui/select';
 import {
-	OptionType,
 	fontFamilyOptions,
 	fontColors,
 	backgroundColors,
@@ -17,92 +16,65 @@ import {
 import { RadioGroup } from 'src/ui/radio-group';
 import { Separator } from 'src/ui/separator';
 import { Text } from 'src/ui/text';
+import { useOutsideClickClose } from '../../ui/select/hooks/useOutsideClickClose';
 
-export const ArticleParamsForm = () => {
-	const [initialSettings] = useState<ArticleStateType>(defaultArticleState);
+type Props = {
+	appliedSettings: ArticleStateType;
+	onApplySettings: (settings: ArticleStateType) => void;
+};
+
+export const ArticleParamsForm = ({
+	appliedSettings,
+	onApplySettings,
+}: Props) => {
+	const asideRef = useRef<HTMLDivElement>(null);
+
 	const [isOpen, setIsOpen] = useState(false);
-	const [appliedSettings, setAppliedSettings] =
-		useState<ArticleStateType>(defaultArticleState);
 
-	const [fontFamily, setFontFamily] = useState<OptionType | null>(
-		defaultArticleState.fontFamilyOption
-	);
-	const [fontColor, setFontColor] = useState<OptionType | null>(
-		defaultArticleState.fontColor
-	);
-	const [backgroundColor, setBackgroundColor] = useState<OptionType | null>(
-		defaultArticleState.backgroundColor
-	);
-	const [contentWidth, setContentWidth] = useState<OptionType | null>(
-		defaultArticleState.contentWidth
-	);
-	const [fontSize, setFontSize] = useState<OptionType>(
-		defaultArticleState.fontSizeOption
-	);
+	const [params, setParams] = useState<ArticleStateType>(defaultArticleState);
 
 	const toggleSidebar = () => {
 		setIsOpen((prev) => !prev);
 	};
 
-	const applyStyles = (settings: ArticleStateType) => {
-		const main = document.querySelector('main');
-		if (!main) return;
-
-		main.style.setProperty(
-			'--font-family',
-			`'${settings.fontFamilyOption.value}'`
-		);
-		main.style.setProperty('--font-color', settings.fontColor.value);
-		main.style.setProperty('--bg-color', settings.backgroundColor.value);
-		main.style.setProperty('--container-width', settings.contentWidth.value);
-		main.style.setProperty('--font-size', settings.fontSizeOption.value);
-	};
-
-	const handleApply = () => {
-		if (
-			!fontFamily ||
-			!fontColor ||
-			!backgroundColor ||
-			!contentWidth ||
-			!fontSize
-		)
-			return;
-
-		const newSettings: ArticleStateType = {
-			fontFamilyOption: fontFamily,
-			fontColor,
-			backgroundColor,
-			contentWidth,
-			fontSizeOption: fontSize,
-		};
-
-		setAppliedSettings(newSettings);
-		applyStyles(newSettings);
-		setIsOpen(false);
-	};
-
 	const resetSettings = () => {
-		setFontFamily(initialSettings.fontFamilyOption);
-		setFontColor(initialSettings.fontColor);
-		setBackgroundColor(initialSettings.backgroundColor);
-		setContentWidth(initialSettings.contentWidth);
-		setFontSize(initialSettings.fontSizeOption);
+		setParams(defaultArticleState);
+	};
+
+	const restoreFromApplied = () => {
+		setParams(appliedSettings);
 	};
 
 	useEffect(() => {
-		if (isOpen) {
-			setFontFamily(appliedSettings.fontFamilyOption);
-			setFontColor(appliedSettings.fontColor);
-			setBackgroundColor(appliedSettings.backgroundColor);
-			setContentWidth(appliedSettings.contentWidth);
-			setFontSize(appliedSettings.fontSizeOption);
-		}
+		if (isOpen) restoreFromApplied();
 	}, [isOpen]);
+
+	const handleApply = () => {
+		onApplySettings(params);
+		setIsOpen(false);
+	};
+
+	const updateParam = <K extends keyof ArticleStateType>(
+		key: K,
+		value: ArticleStateType[K]
+	) => {
+		setParams((prev) => ({
+			...prev,
+			[key]: value,
+		}));
+	};
+
+	useOutsideClickClose({
+		isOpen,
+		rootRef: asideRef,
+		onChange: setIsOpen,
+	});
 
 	return (
 		<>
 			<ArrowButton isOpen={isOpen} onClick={toggleSidebar} />
 			<aside
+				ref={asideRef}
 				className={clsx(styles.container, { [styles.container_open]: isOpen })}>
 				<form
 					className={styles.form}
@@ -114,7 +86,7 @@ export const ArticleParamsForm = () => {
 						e.preventDefault();
 						handleApply();
 					}}>
-					<Text as='h2' size={31} weight={800} uppercase dynamicLite>
+					<Text as='h2' size={31} weight={800} uppercase>
 						Задайте параметры
 					</Text>
 
@@ -122,24 +94,24 @@ export const ArticleParamsForm = () => {
 						title='Шрифт'
 						placeholder='Выберите шрифт'
 						options={fontFamilyOptions}
-						selected={fontFamily}
-						onChange={setFontFamily}
+						selected={params.fontFamilyOption}
+						onChange={(val) => updateParam('fontFamilyOption', val)}
 					/>
 
 					<RadioGroup
 						title='Размер шрифта'
 						name='string'
 						options={fontSizeOptions}
-						selected={fontSize}
-						onChange={setFontSize}
+						selected={params.fontSizeOption}
+						onChange={(val) => updateParam('fontSizeOption', val)}
 					/>
 
 					<Select
 						title='Цвет шрифта'
 						placeholder='Выберите цвет'
 						options={fontColors}
-						selected={fontColor}
-						onChange={setFontColor}
+						selected={params.fontColor}
+						onChange={(val) => updateParam('fontColor', val)}
 					/>
 
 					<Separator />
@@ -148,16 +120,16 @@ export const ArticleParamsForm = () => {
 						title='Цвет фона'
 						placeholder='Выберите цвет фона'
 						options={backgroundColors}
-						selected={backgroundColor}
-						onChange={setBackgroundColor}
+						selected={params.backgroundColor}
+						onChange={(val) => updateParam('backgroundColor', val)}
 					/>
 
 					<Select
 						title='Ширина контента'
 						placeholder='Выберите ширину контента'
 						options={contentWidthArr}
-						selected={contentWidth}
-						onChange={setContentWidth}
+						selected={params.contentWidth}
+						onChange={(val) => updateParam('contentWidth', val)}
 					/>
 
 					<div className={styles.bottomContainer}>
